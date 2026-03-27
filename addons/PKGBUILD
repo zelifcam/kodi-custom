@@ -1,0 +1,84 @@
+# Maintainer: Bryan
+pkgname=kodi-gbm-addons-git
+pkgver=r70762.g2050ef63583
+pkgrel=1
+pkgdesc="Binary addons for kodi-gbm-git"
+arch=('x86_64')
+url="https://kodi.tv"
+license=('GPL-2.0-or-later')
+install=kodi-gbm-addons-git.install
+depends=('kodi-gbm-git')
+makedepends=(
+  'cmake' 'git' 'nasm' 'swig' 'gperf'
+  'python-setuptools'
+  'jre17-openjdk-headless'
+)
+options=('!lto')
+
+source=(
+  "kodi::git+https://github.com/xbmc/xbmc.git#branch=master"
+)
+sha256sums=('SKIP')
+
+pkgver() {
+  cd kodi
+  printf "r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+_fake_stamps() {
+  local dep=$1
+  local stampdir="$srcdir/addons-build/build/${dep}/src/${dep}-stamp"
+  mkdir -p "$stampdir"
+  for step in mkdir download update patch configure build install; do
+    touch "$stampdir/${dep}-${step}"
+  done
+}
+
+_addons_to_build="inputstream.ffmpegdirect inputstream.rtmp inputstream.adaptive pvr.iptvsimple visualization.fishbmc visualization.goom visualization.matrix visualization.pictureit visualization.projectm visualization.shadertoy visualization.spectrum visualization.starburst visualization.waveform"
+
+prepare() {
+  # Full clean rebuild to ensure deps and addons are consistent
+  rm -rf "$srcdir/addons-build"
+}
+
+build() {
+  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+  export PATH="$JAVA_HOME/bin:$PATH"
+  # GCC 15 has ICEs in multiple -O2 passes; drop to -O1 for C and C++
+  export CFLAGS="${CFLAGS/-O2/-O1}"
+  export CXXFLAGS="${CXXFLAGS/-O2/-O1}"
+
+  /opt/cmake3/bin/cmake -S kodi/cmake/addons -B "$srcdir/addons-build" \
+    -DADDONS_TO_BUILD="$_addons_to_build" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_C_FLAGS_RELEASE="-O1 -DNDEBUG" \
+    -DCMAKE_CXX_FLAGS_RELEASE="-O1 -DNDEBUG" \
+    -DCMAKE_BUILD_RPATH_USE_ORIGIN=ON \
+    -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=bfd" \
+    -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=bfd"
+
+  _fake_stamps iconv
+  _fake_stamps gmp
+  _fake_stamps lame
+
+  # -k: keep going past individual addon failures (e.g. assembler bugs on obscure addons)
+  /opt/cmake3/bin/cmake --build "$srcdir/addons-build" -j"$(nproc)" -- -k || true
+}
+
+package() {
+  local _depends="$srcdir/addons-build/build/depends"
+
+  for _addon_dir in "$_depends/share/kodi/addons/"/*/; do
+    _addon=$(basename "$_addon_dir")
+    [[ ! -f "$_addon_dir/addon.xml" ]] && continue
+
+    install -d "$pkgdir/usr/share/kodi/addons/$_addon"
+    cp -a "$_addon_dir"/* "$pkgdir/usr/share/kodi/addons/$_addon/"
+
+    if [ -d "$_depends/lib/kodi/addons/$_addon" ]; then
+      install -d "$pkgdir/usr/lib/kodi/addons/$_addon"
+      cp -a "$_depends/lib/kodi/addons/$_addon/"* \
+            "$pkgdir/usr/lib/kodi/addons/$_addon/"
+    fi
+  done
+}

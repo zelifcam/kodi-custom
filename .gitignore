@@ -1,0 +1,15 @@
+# makepkg build artifacts
+*/src
+*/pkg
+*/kodi
+
+# downloaded sources
+*.tar.gz
+*.tar.xz
+*.tar.bz2
+
+# build logs
+*.log
+
+# built packages
+*.pkg.tar.zst

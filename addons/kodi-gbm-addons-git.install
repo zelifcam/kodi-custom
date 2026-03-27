@@ -1,0 +1,12 @@
+post_install() {
+  find /home -maxdepth 4 -path '*/.kodi/userdata/Database/Addons*.db' -delete 2>/dev/null
+  echo ":: Addon database cleared — Kodi will rescan on next start"
+}
+
+post_upgrade() {
+  post_install
+}
+
+post_remove() {
+  post_install
+}

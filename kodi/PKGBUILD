@@ -1,0 +1,138 @@
+# Maintainer: Bryan
+pkgname=kodi-gbm-git
+pkgver=r70762.g2050ef63583
+pkgrel=1
+pkgdesc="Kodi (master, GBM/GL)"
+arch=('x86_64')
+url="https://kodi.tv"
+license=('GPL-2.0-or-later')
+provides=('kodi')
+conflicts=('kodi')
+depends=(
+  'curl' 'dav1d' 'fmt' 'libass' 'libbluray' 'libcdio' 'libcec'
+  'libmicrohttpd' 'libnfs' 'libpulse' 'libva' 'libvdpau' 'lirc' 'lzo'
+  'mariadb-libs' 'mesa' 'pipewire' 'python' 'python-pillow'
+  'python-pycryptodomex' 'python-simplejson' 'smbclient' 'sndio' 'spdlog'
+  'sqlite' 'taglib' 'tinyxml' 'tinyxml2' 'libxkbcommon' 'libinput'
+  'libdrm' 'libdisplay-info' 'exiv2' 'pcre' 'giflib'
+)
+optdepends=(
+  'shairplay: AirPlay audio streaming support'
+  'gdb: debugging crashes'
+)
+makedepends=(
+  'cmake' 'git' 'nasm' 'swig' 'gperf' 'gtest' 'meson'
+  'ghostscript' 'graphviz' 'nlohmann-json' 'rapidjson'
+  'mariadb-libs' 'python-setuptools'
+  'jre17-openjdk-headless'
+)
+options=('!lto')
+
+_libdvdcss_version="1.4.3-Next-Nexus-Alpha2-2"
+_libdvdnav_version="6.1.1-Next-Nexus-Alpha2-2"
+_libdvdread_version="6.1.3-Next-Nexus-Alpha2-2"
+_ffmpeg_version="8.0.1"
+_crossguid_version="ca1bf4b810e2d188d04cb6286f957008ee1b7681"
+_fstrcmp_version="0.7.D001"
+_flatbuffers_version="23.3.3"
+_libudfread_version="1.2.0"
+
+source=(
+  "kodi::git+https://github.com/xbmc/xbmc.git#branch=master"
+  "libdvdcss-${_libdvdcss_version}.tar.gz::https://github.com/xbmc/libdvdcss/archive/refs/tags/${_libdvdcss_version}.tar.gz"
+  "libdvdnav-${_libdvdnav_version}.tar.gz::https://github.com/xbmc/libdvdnav/archive/refs/tags/${_libdvdnav_version}.tar.gz"
+  "libdvdread-${_libdvdread_version}.tar.gz::https://github.com/xbmc/libdvdread/archive/refs/tags/${_libdvdread_version}.tar.gz"
+  "ffmpeg-${_ffmpeg_version}.tar.xz::https://ffmpeg.org/releases/ffmpeg-${_ffmpeg_version}.tar.xz"
+  "crossguid-${_crossguid_version}.tar.gz::https://mirrors.kodi.tv/build-deps/sources/crossguid-${_crossguid_version}.tar.gz"
+  "fstrcmp-${_fstrcmp_version}.tar.gz::https://mirrors.kodi.tv/build-deps/sources/fstrcmp-${_fstrcmp_version}.tar.gz"
+  "flatbuffers-${_flatbuffers_version}.tar.gz::https://mirrors.kodi.tv/build-deps/sources/flatbuffers-${_flatbuffers_version}.tar.gz"
+  "libudfread-${_libudfread_version}.tar.bz2::https://mirrors.kodi.tv/build-deps/sources/libudfread-${_libudfread_version}.tar.bz2"
+)
+noextract=(
+  "libdvdcss-${_libdvdcss_version}.tar.gz"
+  "libdvdnav-${_libdvdnav_version}.tar.gz"
+  "libdvdread-${_libdvdread_version}.tar.gz"
+  "ffmpeg-${_ffmpeg_version}.tar.xz"
+  "crossguid-${_crossguid_version}.tar.gz"
+  "fstrcmp-${_fstrcmp_version}.tar.gz"
+  "flatbuffers-${_flatbuffers_version}.tar.gz"
+  "libudfread-${_libudfread_version}.tar.bz2"
+)
+sha256sums=('SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP')
+
+pkgver() {
+  cd kodi
+  printf "r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+  rm -rf "$srcdir/kodi-build"
+  mkdir -p "$srcdir/kodi-build"
+}
+
+build() {
+  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+  export PATH="$JAVA_HOME/bin:$PATH"
+  # GCC 15 has ICEs in multiple -O2 passes; drop to -O1 for C and C++
+  export CFLAGS="${CFLAGS/-O2/-O1}"
+  export CXXFLAGS="${CXXFLAGS/-O2/-O1}"
+
+  /opt/cmake3/bin/cmake -S kodi -B "$srcdir/kodi-build" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_C_FLAGS_RELEASE="-O1 -DNDEBUG" \
+    -DCMAKE_CXX_FLAGS_RELEASE="-O1 -DNDEBUG" \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBDIR=/usr/lib \
+    -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=bfd" \
+    -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=bfd" \
+    -DCORE_PLATFORM_NAME=gbm \
+    -DAPP_RENDER_SYSTEM=gles \
+    -DENABLE_GBM=ON \
+    -DENABLE_X11=OFF \
+    -DENABLE_WAYLAND=OFF \
+    -DENABLE_TESTING=OFF \
+    -DENABLE_INTERNAL_FFMPEG=ON \
+    -DENABLE_INTERNAL_CROSSGUID=ON \
+    -DENABLE_INTERNAL_FSTRCMP=ON \
+    -DENABLE_INTERNAL_FLATBUFFERS=ON \
+    -DENABLE_INTERNAL_UDFREAD=ON \
+    -DENABLE_INTERNAL_RapidJSON=OFF \
+    -DENABLE_INTERNAL_EXIV2=ON \
+    -DENABLE_VAAPI=ON \
+    -DENABLE_VDPAU=ON \
+    -DENABLE_CEC=ON \
+    -DENABLE_MYSQLCLIENT=ON \
+    -DMYSQL_INCLUDE_DIR=/usr/include/mysql \
+    -Dlibdvdcss_URL="$srcdir/libdvdcss-${_libdvdcss_version}.tar.gz" \
+    -Dlibdvdnav_URL="$srcdir/libdvdnav-${_libdvdnav_version}.tar.gz" \
+    -Dlibdvdread_URL="$srcdir/libdvdread-${_libdvdread_version}.tar.gz" \
+    -DFFMPEG_URL="$srcdir/ffmpeg-${_ffmpeg_version}.tar.xz" \
+    -DCROSSGUID_URL="$srcdir/crossguid-${_crossguid_version}.tar.gz" \
+    -DFSTRCMP_URL="$srcdir/fstrcmp-${_fstrcmp_version}.tar.gz" \
+    -DFLATBUFFERS_URL="$srcdir/flatbuffers-${_flatbuffers_version}.tar.gz" \
+    -DUDFREAD_URL="$srcdir/libudfread-${_libudfread_version}.tar.bz2"
+
+  /opt/cmake3/bin/cmake --build "$srcdir/kodi-build" -j"$(nproc)"
+}
+
+package() {
+  cd "$srcdir/kodi-build"
+  for _cmp in kodi kodi-bin; do
+    DESTDIR="$pkgdir" /opt/cmake3/bin/cmake \
+      -DCMAKE_INSTALL_COMPONENT="$_cmp" \
+      -P cmake_install.cmake
+  done
+
+  mkdir -p "$pkgdir/usr/lib/kodi/addons"
+  # Replace Kodi's bundled cert with the system cert store
+  rm -f "$pkgdir/usr/share/kodi/system/certs/cacert.pem"
+  ln -s /etc/ssl/cert.pem "$pkgdir/usr/share/kodi/system/certs/cacert.pem"
+}
