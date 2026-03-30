@@ -1,0 +1,29 @@
+[Unit]
+Description=Kodi Media Center (GBM)
+After=systemd-user-sessions.service sound.target
+Wants=systemd-user-sessions.service sound.target
+Conflicts=getty@tty1.service
+
+[Service]
+# Force GBM/KMS windowing
+Environment=KODI_GBM=1
+# Make sure Kodi uses the render node (recommended)
+Environment=KODI_RENDER_NODE=/dev/dri/renderD128
+# Optional: avoid a “too-early boot” HDR detection issue by waiting for DRM to settle
+ExecStartPre=/usr/bin/sleep 2
+User=kodi
+Group=kodi
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty
+StandardOutput=tty
+StandardError=journal
+ExecStart=/usr/bin/kodi --standalone --windowing=gbm
+Restart=always
+RestartSec=5s
+TimeoutStopSec=10s
+
+[Install]
+WantedBy=multi-user.target
